@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat</title>
+  <link rel="icon" href="/static/bot-icon.png" type="image/png">
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: linear-gradient(to bottom, #3498db, #2c3e50);
+      color: white;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+    }
+
+    #bot-header {
+      margin-bottom: 20px;
+    }
+
+    #bot-header img {
+      width: 80px;
+      border-radius: 15px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    }
+
+    #bot-header h2 {
+      margin-top: 10px;
+      font-size: 22px;
+    }
+
+    #chat-box {
+      max-width: 600px;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 15px;
+      height: 400px;
+      overflow-y: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    .message {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    .message.user {
+      justify-content: flex-end;
+    }
+
+    .message.bot {
+      justify-content: flex-start;
+    }
+
+    .bubble {
+      padding: 10px 15px;
+      border-radius: 20px;
+      max-width: 70%;
+      font-size: 15px;
+      line-height: 1.5;
+      animation: fadeIn 0.3s ease;
+      word-wrap: break-word;
+    }
+
+    .user .bubble {
+      background-color: #2980b9;
+      color: white;
+      border-bottom-right-radius: 0;
+    }
+
+    .bot .bubble {
+      background-color: #ecf0f1;
+      color: #2c3e50;
+      border-bottom-left-radius: 0;
+    }
+
+    form {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      width: 70%;
+      font-size: 1em;
+    }
+
+    button[type="submit"], .clear-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button[type="submit"] {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .clear-btn {
+      margin-top: 10px;
+      background-color: #c0392b;
+      color: white;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="bot-header">
+    <img src="/static/bot-icon.png" alt="Bot Icon">
+    <h2 id="bot-title">بوت محمد</h2>
+  </div>
+
+  <div style="margin-bottom: 15px;">
+    <label for="lang-select" id="lang-label">اختر اللغة:</label>
+    <select id="lang-select" onchange="setLanguage(this.value)">
+      <option value="ar">العربية</option>
+      <option value="en">English</option>
+    </select>
+  </div>
+
+  <div id="chat-box"></div>
+
+  <form id="chat-form">
+    <input type="text" id="message" autocomplete="off" required>
+    <button type="submit" id="send-btn">إرسال</button>
+  </form>
+
+  <button class="clear-btn" onclick="clearChat()" id="clear-btn">مسح المحادثة</button>
+
+  <script>
+    const username = "{{ username }}";
+    const socket = io();
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("message");
+    const chatBox = document.getElementById("chat-box");
+    const langSelect = document.getElementById("lang-select");
+
+    let lang = localStorage.getItem("chatLang");
+    if (!lang) {
+      lang = "ar";
+      localStorage.setItem("chatLang", lang);
+    }
+    langSelect.value = lang;
+
+    // ✅ تغيير النصوص حسب اللغة
+    if (lang === "en") {
+      document.documentElement.lang = "en";
+      document.documentElement.dir = "ltr";
+      document.getElementById("bot-title").textContent = "Mohamed Bot";
+      document.getElementById("lang-label").textContent = "Choose language:";
+      input.placeholder = "Type your message here...";
+      document.getElementById("send-btn").textContent = "Send";
+      document.getElementById("clear-btn").textContent = "Clear Chat";
+    }
+
+    loadMessages();
+
+    if (chatBox.innerHTML.trim() === "") {
+      let welcomeMessage = lang === "en"
+        ? `Welcome ${username}! How can I help you today? 😊`
+        : `أهلاً وسهلاً بك يا ${username}! كيف أقدر أساعدك؟ 😊`;
+      addMessage(welcomeMessage, "bot");
+    }
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const msg = input.value.trim();
+      if (msg === "") return;
+
+      addMessage(msg, "user");
+      socket.send(msg);
+
+      // رد تلقائي بسيط حسب اللغة
+      if (lang === "en" && msg.toLowerCase() === "hi") {
+        addMessage("Hi there! How can I assist you?", "bot");
+      } else if (lang === "ar" && msg === "مرحبا") {
+        addMessage("مرحباً بك! كيف يمكنني مساعدتك؟", "bot");
+      }
+
+      input.value = "";
+    });
+
+    socket.on("message", function(reply) {
+      addMessage(reply, "bot");
+    });
+
+    function addMessage(text, sender) {
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message", sender);
+
+      const bubble = document.createElement("div");
+      bubble.classList.add("bubble");
+      bubble.textContent = text;
+
+      messageDiv.appendChild(bubble);
+      chatBox.appendChild(messageDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      saveMessage(text, sender);
+    }
+
+    function saveMessage(text, sender) {
+      const messages = JSON.parse(localStorage.getItem("chatMessages") || "[]");
+      messages.push({ text, sender });
+      localStorage.setItem("chatMessages", JSON.stringify(messages));
+    }
+
+    function loadMessages() {
+      const messages = JSON.parse(localStorage.getItem("chatMessages") || "[]");
+      messages.forEach(msg => addMessage(msg.text, msg.sender));
+    }
+
+    function clearChat() {
+      localStorage.removeItem("chatMessages");
+      chatBox.innerHTML = "";
+      let welcomeMessage = lang === "en"
+        ? `Welcome ${username}! How can I help you today? 😊`
+        : `أهلاً وسهلاً بك يا ${username}! كيف أقدر أساعدك؟ 😊`;
+      addMessage(welcomeMessage, "bot");
+    }
+
+    function setLanguage(lang) {
+      localStorage.setItem("chatLang", lang);
+      location.reload();
+    }
+  </script>
+</body>
+</html>
