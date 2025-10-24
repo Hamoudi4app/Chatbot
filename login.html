@@ -69,15 +69,6 @@
       background-color: #219150;
     }
 
-    .error {
-      color: #ffdddd;
-      background-color: rgba(255, 0, 0, 0.2);
-      padding: 10px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      font-weight: bold;
-    }
-
     @media screen and (max-width: 500px) {
       h2 {
         font-size: 1.6em;
@@ -97,13 +88,18 @@
 <body>
   <h2>أدخل بريدك لتلقي كود التحقق</h2>
 
-  {% if error %}
-    <div class="error">{{ error }}</div>
-  {% endif %}
-
-  <form method="POST" action="/">
+  <form onsubmit="goToVerify(); return false;">
     <input type="email" name="email" placeholder="البريد الإلكتروني" required>
     <button type="submit">أرسل كود التحقق</button>
   </form>
+
+  <script>
+    function goToVerify() {
+      // هنا ممكن تحفظ البريد في localStorage لو حبيت تستخدمه لاحقًا
+      const email = document.querySelector('input[name="email"]').value;
+      localStorage.setItem("userEmail", email);
+      window.location.href = "verify.html";
+    }
+  </script>
 </body>
 </html>
