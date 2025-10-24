@@ -88,9 +88,17 @@
 <body>
   <h2>أدخل كود التحقق الذي وصلك على البريد</h2>
 
-  <form method="POST" action="/verify">
+  <form onsubmit="goToChat(); return false;">
     <input type="text" name="code" placeholder="كود التحقق" required>
     <button type="submit">تحقق</button>
   </form>
+
+  <script>
+    function goToChat() {
+      const code = document.querySelector('input[name="code"]').value;
+      // ممكن تضيف تحقق بالكود هنا لو حبيت
+      window.location.href = "chat.html";
+    }
+  </script>
 </body>
 </html>
